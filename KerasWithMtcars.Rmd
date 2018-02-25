@@ -1,0 +1,106 @@
+---
+title: "Keras Rstudio.com Tutorial - Guide to the Sequential Model"
+output: html_notebook
+---
+
+# Going to try and build a NN on mtcars
+# Goal is to predict mpg using the 11 other features
+```{r}
+library(keras)
+library(dplyr)
+df <- mtcars
+dim(df)
+```
+
+# Preparring the data
+```{r}
+# Set Seed so that same sample can be reproduced in future also
+set.seed(101) 
+# Now Selecting 75% of data as sample from total 'n' rows of the data  
+sample <- sample.int(n = nrow(df), size = floor(0.7*nrow(df)), replace = F)
+train <- df[sample, ]
+test  <- df[-sample, ]
+# NOTE - Keras expects a matrix as input not a dataframe
+xtrain <- data.matrix(select(train, -mpg))
+ytrain <- data.matrix(select(train, mpg))
+xtest <- data.matrix(select(test, -mpg))
+ytest <- data.matrix(select(test, mpg))
+```
+
+```{r}
+# We are building a simple sequential model
+model <- keras_model_sequential() 
+    # First layer has 10 units and because we have 10 features in the data, input shape is 10
+model %>%
+    layer_dense(units = 10, input_shape = 10) %>%
+    layer_activation('relu') %>%
+    layer_dropout(rate = 0.2) %>% 
+    layer_dense(units = 20) %>%
+    layer_activation('relu') %>%
+    layer_dropout(rate = 0.2) %>%
+    layer_dense(units = 1)
+    # Because we are predicting the last layer has two attributes
+    # 1. We don't want any activation type on the output layer.  We want raw numbers
+    # 2. We only need one unit
+```
+
+```{r}
+model %>% compile(
+    # Recommended optimizer for regression
+    # Might also be able to use 'adam'?
+  optimizer = optimizer_rmsprop(lr = 0.002),
+  loss = 'mse'
+)
+```
+
+# Training and Evaluation
+```{r}
+# Epoch is how many times to run the ENTIRE dataset through
+# Batches tell me how many images to train on at a time before updating
+history <- model %>% 
+    fit(xtrain, 
+        ytrain, 
+        epochs = 2000, 
+        batch_size = 4,
+        verbose = 0
+)
+```
+
+```{r}
+plot(history$metrics$loss, main = 'Loss', ylim = c(0,70))
+```
+
+# Evaluate the model’s performance on the test data
+```{r}
+model %>% evaluate(xtest, ytest)
+```
+# First loss with original parameters
+13.22923, 13.40249, 13.56023, 10.24866, 23.28239
+
+# Added a third layer with 20 units and relu activation
+77.13772, 21.60238, 45.68206, 29.384, 17.92793
+
+# Added 2 drop out layers with percentage = 0.2
+8.328712, 12.37029, 33.02134, 10.58245, 57.4649
+
+# Increased batch size to 10
+25.63928, 24.79972, 28.12344, 13.60618, 9.062964
+
+# Batch size back to 4, epochs to 2000
+110.6072, 6.019744, 11.27351, 47.69019, 6.593533
+
+
+
+```{r}
+results <- model %>% 
+    predict(xtest)
+comp <- as.data.frame(cbind(ytest, results))
+colnames(comp) <- c('true mpg', 'pred mpg')
+comp
+```
+
+
+
+
+
+

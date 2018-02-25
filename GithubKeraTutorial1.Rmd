@@ -1,0 +1,302 @@
+---
+title: "Keras Tutorial"
+output: html_notebook
+---
+
+# Tutorial source
+# http://htmlpreview.github.io/?https://github.com/rajshah4/image_keras/ # blob/master/Rnotebook.nb.html
+
+```{r}
+install.packages('keras')
+library(keras)
+install_keras()
+install_keras(tensorflow = "gpu")
+is_keras_available() 
+```
+```{r}
+train_directory <- "data/train"
+validation_directory <- "data/validation"
+
+img_width <- 150
+img_height <- 150
+batch_size <- 32
+epochs <- 30
+train_samples <- 2048
+validation_samples <- 832
+```
+
+```{r}
+train_generator <- flow_images_from_directory(train_directory, 
+                                              generator = image_data_generator(rescale=1. / 255),
+                                              target_size = c(img_height, img_width), 
+                                              color_mode = "rgb",
+                                              class_mode = "binary", 
+                                              batch_size = batch_size, 
+                                              shuffle = TRUE,
+                                              seed = 123)
+validation_generator <- flow_images_from_directory(validation_directory, 
+                                                   generator = image_data_generator(rescale=1. / 255),
+                                                   target_size = c(img_width, img_height), 
+                                                   color_mode = "rgb", 
+                                                   classes = NULL,
+                                                   class_mode = "binary", 
+                                                   batch_size = batch_size, 
+                                                   shuffle = TRUE,
+                                                   seed = 123)
+
+```
+```{r}
+model <- keras_model_sequential()
+
+model %>%
+  layer_conv_2d(filter = 32, kernel_size = c(3,3), input_shape = c(img_height, img_width, 3)) %>%
+  layer_activation("relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>% 
+  
+  layer_conv_2d(filter = 32, kernel_size = c(3,3)) %>%
+  layer_activation("relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  
+  layer_conv_2d(filter = 64, kernel_size = c(3,3)) %>%
+  layer_activation("relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  
+  layer_flatten() %>%
+  layer_dense(64) %>%
+  layer_activation("relu") %>%
+  layer_dropout(0.5) %>%
+  layer_dense(1) %>%
+  layer_activation("sigmoid")
+```
+
+```{r}
+model %>% 
+    compile(
+        loss = "binary_crossentropy",
+        optimizer = optimizer_rmsprop(lr = 0.0001, decay = 1e-6),
+        metrics = "accuracy"
+)
+```
+
+
+```{r}
+model %>% 
+    fit_generator(
+        train_generator,
+        steps_per_epoch = as.integer(train_samples/batch_size), 
+        epochs = epochs, 
+        validation_data = validation_generator,
+        validation_steps = as.integer(validation_samples/batch_size),
+        verbose=2  #Needed when using rstudio server
+  )
+```
+
+```{r}
+save_model_weights_hdf5(model, 'models/basic_cnn_30_epochsR.h5', overwrite = TRUE)
+```
+
+```{r}
+evaluate_generator(model,validation_generator, validation_samples)
+```
+```{r}
+# Defining the model ------------------------------------------------------
+#img_width <- 150
+#img_height <- 150
+
+model <- keras_model_sequential()
+
+model %>%
+  layer_conv_2d(filter = 32, kernel_size = c(3,3), input_shape = c(img_height, img_width, 3)) %>%
+  layer_activation("relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>% 
+  
+  layer_conv_2d(filter = 32, kernel_size = c(3,3)) %>%
+  layer_activation("relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  
+  layer_conv_2d(filter = 64, kernel_size = c(3,3)) %>%
+  layer_activation("relu") %>%
+  layer_max_pooling_2d(pool_size = c(2,2)) %>%
+  
+  layer_flatten() %>%
+  layer_dense(64) %>%
+  layer_activation("relu") %>%
+  layer_dropout(0.5) %>%
+  layer_dense(1) %>%
+  layer_activation("sigmoid")
+
+model %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = optimizer_rmsprop(lr = 0.001, decay = 1e-6),
+  metrics = "accuracy"
+)
+```
+
+
+```{r}
+augment <- image_data_generator(rescale=1./255,
+                               shear_range=0.2,
+                               zoom_range=0.2,
+                               horizontal_flip=TRUE)
+
+train_generator_augmented <- flow_images_from_directory(train_directory, generator = augment,
+  target_size = c(img_height, img_width), color_mode = "rgb",
+  class_mode = "binary", batch_size = batch_size, shuffle = TRUE,
+  seed = 123)
+
+validation_generator <- flow_images_from_directory(validation_directory, generator = image_data_generator(rescale=1./255),
+  target_size = c(img_height, img_width), color_mode = "rgb", classes = NULL,
+  class_mode = "binary", batch_size = batch_size, shuffle = TRUE,
+  seed = 123)
+```
+
+```{r}
+model %>% fit_generator(
+  train_generator_augmented,
+  steps_per_epoch = as.integer(train_samples/batch_size), 
+  epochs = epochs, 
+  validation_data = validation_generator,
+  validation_steps = as.integer(validation_samples/batch_size)
+  ,verbose=2  #Needed when using restudio server
+  )
+```
+
+```{r}
+save_model_hdf5(model, 'models/augmented_30_epochsR.h5', overwrite = TRUE)
+```
+
+```{r}
+evaluate_generator(model, validation_generator, validation_samples)
+```
+
+```{r}
+model_vgg <- application_vgg16(include_top = FALSE, weights = "imagenet")
+```
+
+```{r}
+train_generator_bottleneck <- flow_images_from_directory(
+        train_directory,
+        target_size= c(img_height, img_width),
+        batch_size=batch_size,
+        class_mode=NULL,
+        shuffle=FALSE)
+
+validation_generator_bottleneck <- flow_images_from_directory(
+        validation_directory,
+        target_size= c(img_height, img_width),
+        batch_size=batch_size,
+        class_mode=NULL,
+        shuffle=FALSE)
+```
+```{r}
+bottleneck_features_train <- predict_generator(model_vgg, train_generator_bottleneck, train_samples / batch_size)
+saveRDS(bottleneck_features_train, "models/bottleneck_features_train.rds")
+bottleneck_features_validation <- predict_generator(model_vgg,validation_generator_bottleneck, validation_samples / batch_size)
+saveRDS(bottleneck_features_validation, "models/bottleneck_features_validation.rds")
+```
+
+```{r}
+bottleneck_features_train <- readRDS("models/bottleneck_features_train.rds")
+bottleneck_features_validation <- readRDS("models/bottleneck_features_validation.rds")
+train_labels = c(rep(0,train_samples/2),rep(1,train_samples/2))
+validation_labels = c(rep(0,validation_samples/2),rep(1,validation_samples/2))
+```
+
+```{r}
+model_top <- keras_model_sequential()
+
+model_top %>%
+  layer_dense(units=nrow(bottleneck_features_train),input_shape = dim(bottleneck_features_train)[2:4]) %>% 
+  layer_flatten() %>%
+  layer_dense(256) %>%
+  layer_activation("relu") %>%
+  layer_dropout(0.5) %>%
+  layer_dense(1) %>%
+  layer_activation("sigmoid")
+
+model_top %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = optimizer_rmsprop(lr = 0.0001, decay = 1e-6),
+  metrics = "accuracy")
+```
+
+```{r}
+valid = list(bottleneck_features_validation, validation_labels)
+model_top %>% fit(
+        x = bottleneck_features_train, y = train_labels,
+        epochs=epochs, 
+        batch_size=16,  ##Hit out of memory with a batch size of 32
+        validation_data=valid
+        ,verbose=2  #Needed when using restudio server
+        )
+```
+
+```{r}
+save_model_weights_hdf5(model_top, 'models/bottleneck_30_epochsR.h5', overwrite = TRUE)
+```
+
+```{r}
+evaluate(model_top,bottleneck_features_validation, validation_labels)
+```
+
+```{r}
+model_vgg <- application_vgg16(include_top = FALSE, weights = "imagenet",
+                               input_shape = c(as.integer(img_height), as.integer(img_width),
+                                               as.integer(3))
+                               )
+```
+
+```{r}
+top_model <- keras_model_sequential()
+
+top_model %>%
+  layer_dense(units=nrow(bottleneck_features_train),input_shape = model_vgg$output_shape[2:4]) %>% 
+  layer_flatten() %>%
+  layer_dense(256) %>%
+  layer_activation("relu") %>%
+  layer_dropout(0.5) %>%
+  layer_dense(1) %>%
+  layer_activation("sigmoid")
+
+load_model_weights_hdf5(top_model, "models/bottleneck_30_epochsR.h5")
+
+model_ft <- keras_model(inputs = model_vgg$input, outputs = top_model(model_vgg$output))
+```
+
+```{r}
+for (layer in model_ft$layers[1:16])
+ layer$trainable <- FALSE
+```
+
+```{r}
+model_ft %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = optimizer_sgd(lr=1e-3, momentum=0.9),
+  metrics = "accuracy")
+
+augment <- image_data_generator(rescale=1./255,
+                               shear_range=0.2,
+                               zoom_range=0.2,
+                               horizontal_flip=TRUE)
+
+train_generator_augmented <- flow_images_from_directory(train_directory, generator = augment,
+  target_size = c(img_height, img_width), color_mode = "rgb",
+  class_mode = "binary", batch_size = batch_size, shuffle = TRUE,
+  seed = 123)
+
+validation_generator <- flow_images_from_directory(validation_directory, generator = image_data_generator(rescale=1./255),
+  target_size = c(img_height, img_width), color_mode = "rgb", classes = NULL,
+  class_mode = "binary", batch_size = batch_size, shuffle = TRUE,
+  seed = 123)
+```
+
+```{r}
+model_ft %>% fit_generator(
+  train_generator_augmented,
+  steps_per_epoch = as.integer(train_samples/batch_size), 
+  epochs = epochs, 
+  validation_data = validation_generator,
+  validation_steps = as.integer(validation_samples/batch_size)
+  ,verbose=2  #Needed when using restudio server
+  )
+```

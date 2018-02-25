@@ -1,0 +1,87 @@
+---
+title: "Keras Rstudio.com Tutorial"
+output: html_notebook
+---
+
+# Source of Demo https://keras.rstudio.com
+```{r, include=FALSE}
+devtools::install_github("rstudio/keras")
+```
+
+```{r}
+library(keras)
+install_keras()
+```
+
+# Preparring the data
+```{r}
+mnist <- dataset_mnist()
+# Right now xtrain is 28 rows by 28 columns and 60,000 images
+xtrain <- mnist$train$x
+ytrain <- mnist$train$y
+xtest <- mnist$test$x
+ytest <- mnist$test$y
+
+# reshape
+# After the line below xtrain will be a single column 784 long (28*28) with 60,000 images.
+# We are taking each row from xtrain and stackign them vertically into a single long column vector.  Note that we use the array_reshape() function rather than the dim<-() function to reshape the array. This is so that the data is re-interpreted using row-major semantics (as opposed to R’s default column-major semantics), which is in turn compatible with the way that the numerical libraries called by Keras interpret array dimensions.
+xtrain <- array_reshape(xtrain, c(nrow(xtrain), 784))
+xtest <- array_reshape(xtest, c(nrow(xtest), 784))
+# rescale by dividing everything by the max pixel value
+xtrain <- xtrain / 255
+xtest <- xtest / 255
+# The y data is an integer vector with values ranging from 0 to 9. To prepare this data for training we one-hot encode the vectors into binary class matrices using the Keras to_categorical() function:
+ytrain <- to_categorical(ytrain, 10)
+ytest <- to_categorical(ytest, 10)
+```
+
+# Defining the model
+```{r}
+model <- keras_model_sequential() 
+model %>% 
+    # Input shape the same size as our 28*28 images that are reshaped to 784
+  layer_dense(units = 256, activation = 'relu', input_shape = c(784)) %>% 
+  layer_dropout(rate = 0.4) %>% 
+  layer_dense(units = 128, activation = 'relu') %>%
+  layer_dropout(rate = 0.3) %>%
+    # Last layer output shape same as our number of categories in target (0-9)
+  layer_dense(units = 10, activation = 'softmax')
+summary(model)
+```
+
+```{r}
+model %>% compile(
+  loss = 'categorical_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+```
+
+# Training and Evaluation
+```{r}
+# Epoch is how many times to run the ENTIRE dataset (60k images) through
+# Batches tell me how many images to train on at a time before updating
+history <- model %>% 
+    fit(xtrain, 
+        ytrain, 
+        epochs = 30, 
+        batch_size = 128, 
+        validation_split = 0.2
+)
+```
+
+```{r}
+plot(history)
+```
+
+# Evaluate the model’s performance on the test data
+```{r}
+model %>% evaluate(xtest, ytest)
+```
+```{r}
+model %>% predict(xtest)
+```
+
+
+
+
