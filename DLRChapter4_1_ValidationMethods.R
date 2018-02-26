@@ -142,12 +142,12 @@ for (i in 1:S) {
         model %>% fit(pTrainData, pTrainTargets,
                       epochs = numEpochs, batch_size = 2, verbose = 0)
         results <- model %>% evaluate(valData, valTargets, verbose = 0)
-        allLoss <- c(allScores, results$loss)
-        allMae <- c(allScores, results$mean_absolute_error)
+        allLoss <- c(allLoss, results$loss)
+        allMae <- c(allMae, results$mean_absolute_error)
     }
 }
-
-
+mean(allLoss)
+mean(allMae)
 
 preds <- model %>% predict(xtest)
 comp <- as.data.frame(cbind(ytest, round(preds,1)))
