@@ -56,7 +56,7 @@ for (label_type in c("neg", "pos")) {
 library(keras)
 # Cut reviews after 100 words
 maxlen <- 100
-training_samples <- 200
+training_samples <- 600
 validation_samples <- 10000
 # Consider only top 10,000 words in dataset
 max_words <- 10000
@@ -138,9 +138,43 @@ save_model_weights_hdf5(model, "pre_trained_glove_model.h5")
 plot(history)
 
 # Training the same model without pretrained word embeddings
-
-
-
+model <- keras_model_sequential() %>%
+    layer_embedding(input_dim = max_words, output_dim = embedding_dim,
+                    input_length = maxlen) %>%
+    layer_flatten() %>%
+    layer_dense(units = 32, activation = "relu") %>%
+    layer_dense(units = 1, activation = "sigmoid")
+model %>% compile(
+    optimizer = "rmsprop",
+    loss = "binary_crossentropy",
+    metrics = c("acc")
+)
+history <- model %>% fit(
+    x_train, y_train,
+    epochs = 20,
+    batch_size = 32,
+    validation_data = list(x_val, y_val)
+)
+# Tokenizing the data of the test set
+test_dir <- file.path(imdb_dir, "test")
+labels <- c()
+texts <- c()
+for (label_type in c("neg", "pos")) {
+    label <- switch(label_type, neg = 0, pos = 1)
+    dir_name <- file.path(test_dir, label_type)
+    for (fname in list.files(dir_name, pattern = glob2rx("*.txt"),
+                             full.names = TRUE)) {
+        texts <- c(texts, readChar(fname, file.info(fname)$size))
+        labels <- c(labels, label)
+    }
+}
+sequences <- texts_to_sequences(tokenizer, texts)
+x_test <- pad_sequences(sequences, maxlen = maxlen)
+y_test <- as.array(labels)
+# Evaluating model on test set
+model %>%
+    load_model_weights_hdf5("pre_trained_glove_model.h5") %>%
+    evaluate(x_test, y_test)
 
 
 
