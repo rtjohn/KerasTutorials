@@ -186,4 +186,20 @@ plot(history)
 # The approach above first flattened the timeseries, which removed the 
 # notion of time from the input data.
 
+# Training and evaluating a model with layer_gru
+model <- keras_model_sequential() %>%
+    layer_gru(units = 32, input_shape = list(NULL, dim(data)[[-1]])) %>%
+    layer_dense(units = 1)
+model %>% compile(
+    optimizer = optimizer_rmsprop(),
+    loss = "mae"
+)
+history <- model %>% fit_generator(
+    train_gen,
+    steps_per_epoch = 500,
+    epochs = 20,
+    validation_data = val_gen,
+    validation_steps = val_steps
+)
+plot(history)
 
